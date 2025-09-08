@@ -127,6 +127,62 @@ async def received_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return CHOOSING
 
+# Обработчик добавления логотипа
+async def received_logo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    
+    if update.message.photo:
+        # Получаем самое качественное фото
+        photo_file = await update.message.photo[-1].get_file()
+        buffer = BytesIO()
+        await photo_file.download_to_memory(buffer)
+        buffer.seek(0)
+        
+        user_settings[user_id]['logo'] = buffer
+        await update.message.reply_text(
+            "Логотип добавлен!",
+            reply_markup=markup
+        )
+    else:
+        await update.message.reply_text(
+            "Пожалуйста, отправьте изображение. Попробуйте снова:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return ADDING_LOGO
+    
+    return CHOOSING
+
+# Функция для добавления логотипа к QR-коду
+def add_logo_to_qr(qr_buffer, logo_buffer, output_size=200):
+    # Открываем QR-код и логотип
+    qr_img = Image.open(qr_buffer).convert("RGBA")
+    logo_img = Image.open(logo_buffer).convert("RGBA")
+    
+    # Масштабируем логотип
+    logo_size = output_size // 4
+    logo_img = logo_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+    
+    # Создаем круглую маску для логотипа
+    mask = Image.new('L', (logo_size, logo_size), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, logo_size, logo_size), fill=255)
+    
+    # Применяем маску к логотипу
+    logo_img.putalpha(mask)
+    
+    # Позиционируем логотип в центре QR-кода
+    pos = ((qr_img.width - logo_size) // 2, (qr_img.height - logo_size) // 2)
+    
+    # Накладываем логотип на QR-код
+    qr_img.paste(logo_img, pos, logo_img)
+    
+    # Сохраняем результат
+    result_buffer = BytesIO()
+    qr_img.save(result_buffer, format='PNG')
+    result_buffer.seek(0)
+    
+    return result_buffer
+
 
 # Основная функция
 def main():
