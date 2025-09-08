@@ -1,8 +1,10 @@
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 import segno
 from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+import re
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из .env файла
@@ -15,11 +17,37 @@ TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     raise ValueError("Токен бота не найден. Убедитесь, что он указан в .env файле")
 
+# Состояния для ConversationHandler
+CHOOSING, TYPING_COLOR, TYPING_SIZE, TYPING_TEXT, ADDING_LOGO = range(5)
+
+# Хранение пользовательских настроек
+user_settings = {}
+
+# Клавиатура с основными опциями
+reply_keyboard = [
+    ["Цвет QR-кода", "Размер QR-кода"],
+    ["Добавить логотип", "Показать настройки"],
+    ["Сгенерировать QR-код"]
+]
+markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
+
 # Обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    # Инициализируем настройки по умолчанию для пользователя
+    user_settings[user_id] = {
+        'color': 'black',
+        'background': 'white',
+        'size': 10,
+        'logo': None
+    }
+    
     await update.message.reply_text(
-        "Привет! Отправь мне текст или ссылку, и я превращу их в QR-код."
+        "Привет! Я бот для создания кастомных QR-кодов.\n"
+        "Выбери опцию для настройки:",
+        reply_markup=markup
     )
+    return CHOOSING
 
 # Обработчик текстовых сообщений
 async def generate_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
