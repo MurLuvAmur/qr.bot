@@ -49,20 +49,48 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return CHOOSING
 
-# Обработчик текстовых сообщений
-async def generate_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
-    try:
-        # Создаем QR-код
-        qr = segno.make_qr(user_text)
-        # Сохраняем QR-код в буфер памяти
-        buffer = BytesIO()
-        qr.save(buffer, kind="png", scale=10)
-        buffer.seek(0)
-        # Отправляем изображение пользователю
-        await update.message.reply_photo(photo=buffer, caption="Вот твой QR-код!")
-    except Exception as e:
-        await update.message.reply_text("Что-то пошло не так. Попробуй еще раз.")
+# Обработчик выбора опции
+async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    context.user_data['choice'] = text
+    user_id = update.message.from_user.id
+    
+    if text == "Цвет QR-кода":
+        await update.message.reply_text(
+            "Введите цвет в формате HEX (например, #FF5733) или название цвета на английском:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return TYPING_COLOR
+    elif text == "Размер QR-кода":
+        await update.message.reply_text(
+            "Введите размер (от 5 до 20, где 10 - стандартный):",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return TYPING_SIZE
+    elif text == "Добавить логотип":
+        await update.message.reply_text(
+            "Отправьте изображение для использования в качестве логотипа:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return ADDING_LOGO
+    elif text == "Показать настройки":
+        settings = user_settings.get(user_id, {})
+        await update.message.reply_text(
+            f"Текущие настройки:\n"
+            f"Цвет: {settings.get('color', 'black')}\n"
+            f"Фон: {settings.get('background', 'white')}\n"
+            f"Размер: {settings.get('size', 10)}\n"
+            f"Логотип: {'Да' if settings.get('logo') else 'Нет'}",
+            reply_markup=markup
+        )
+        return CHOOSING
+    elif text == "Сгенерировать QR-код":
+        await update.message.reply_text(
+            "Введите текст или URL для кодирования в QR-код:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return TYPING_TEXT
+
 
 # Основная функция
 def main():
