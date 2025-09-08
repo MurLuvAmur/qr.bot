@@ -108,6 +108,25 @@ async def received_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return CHOOSING
 
+# Обработчик ввода размера
+async def received_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    try:
+        size = int(update.message.text)
+        if size < 5 or size > 20:
+            await update.message.reply_text("Размер должен быть между 5 и 20. Попробуйте снова:")
+            return TYPING_SIZE
+    except ValueError:
+        await update.message.reply_text("Пожалуйста, введите число. Попробуйте снова:")
+        return TYPING_SIZE
+    
+    user_settings[user_id]['size'] = size
+    await update.message.reply_text(
+        f"Размер установлен: {size}",
+        reply_markup=markup
+    )
+    return CHOOSING
+
 
 # Основная функция
 def main():
