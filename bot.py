@@ -91,6 +91,23 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return TYPING_TEXT
 
+# Обработчик ввода цвета
+async def received_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    color = update.message.text
+    
+    # Простая валидация цвета
+    if not re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color) and color not in ['black', 'red', 'blue', 'green', 'yellow', 'purple']:
+        await update.message.reply_text("Неверный формат цвета. Попробуйте снова:")
+        return TYPING_COLOR
+    
+    user_settings[user_id]['color'] = color
+    await update.message.reply_text(
+        f"Цвет установлен: {color}",
+        reply_markup=markup
+    )
+    return CHOOSING
+
 
 # Основная функция
 def main():
