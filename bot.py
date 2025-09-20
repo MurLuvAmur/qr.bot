@@ -183,15 +183,85 @@ def add_logo_to_qr(qr_buffer, logo_buffer, output_size=200):
     
     return result_buffer
 
+# Генерация QR-кода с текущими настройками
+async def generate_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_text = update.message.text
+    settings = user_settings.get(user_id, {})
+    
+    try:
+        # Создаем QR-код
+        qr = segno.make_qr(user_text)
+        buffer = BytesIO()
+        qr.save(
+            buffer, 
+            kind="png", 
+            scale=settings.get('size', 10),
+            dark=settings.get('color', 'black'),
+            light=settings.get('background', 'white'),
+            quiet_zone="white"
+        )
+        buffer.seek(0)
+        
+        # Добавляем логотип, если есть
+        if settings.get('logo'):
+            logo_buffer = settings['logo']
+            logo_buffer.seek(0)  # Сбрасываем позицию в начале буфера
+            final_buffer = add_logo_to_qr(buffer, logo_buffer)
+        else:
+            final_buffer = buffer
+        
+        # Отправляем результат
+        await update.message.reply_photo(
+            photo=final_buffer, 
+            caption="Вот ваш кастомный QR-код!",
+            reply_markup=markup
+        )
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"Ошибка при создании QR-кода: {str(e)}",
+            reply_markup=markup
+        )
+    
+    return CHOOSING
+
+# Обработчик отмены
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        'До свидания! Если захотите создать новый QR-код, просто отправьте /start.',
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
 
 # Основная функция
 def main():
-    # Создаем приложение и передаем токен
     application = Application.builder().token(TOKEN).build()
-    # Добавляем обработчики
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr))
-    # Запускаем бота
+    
+    # Настраиваем ConversationHandler
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            CHOOSING: [
+                MessageHandler(filters.Regex('^(Цвет QR-кода|Размер QR-кода|Добавить логотип|Показать настройки|Сгенерировать QR-код)$'), regular_choice)
+            ],
+            TYPING_COLOR: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_color)
+            ],
+            TYPING_SIZE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_size)
+            ],
+            ADDING_LOGO: [
+                MessageHandler(filters.PHOTO, received_logo)
+            ],
+            TYPING_TEXT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
+    
+    application.add_handler(conv_handler)
     application.run_polling()
 
 if __name__ == "__main__":
